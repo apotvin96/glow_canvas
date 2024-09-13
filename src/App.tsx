@@ -2,20 +2,34 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import { config } from "./config";
 import { getPresets, getSystemState } from "./api";
+import Preset from "./types/preset";
+import { Tooltip } from "antd";
 
-function App() {
+const App: React.FC<any> = () => {
     const [systemState, setSystemState] = useState<any | null>(null);
-    const [presets, setPresets] = useState<any | null>(null);
+    const [presets, setPresets] = useState<Preset[]>([]);
 
     useEffect(() => {
         getSystemState().then((state: any | null) => {
             setSystemState(state);
         });
 
-        getPresets().then((presets: any | null) => {
-            setPresets(presets);
+        getPresets().then((presets: any[] | null) => {
+            console.log("presets", presets);
 
-            console.log("Presets: ", presets);
+            if (presets) {
+                const newPresets = [];
+
+                for (const [index, preset] of Object.entries<any>(presets)) {
+                    preset.id = parseInt(index);
+
+                    newPresets.push(new Preset(preset));
+                }
+
+                setPresets(newPresets);
+            } else {
+                setPresets([]);
+            }
         });
     }, []);
 
@@ -31,6 +45,61 @@ function App() {
         }
 
         return presetItems;
+    };
+
+    const renderPresetBox = (presetId: number): React.ReactNode => {
+        const preset = presets.find((preset) => preset.id === presetId);
+
+        if (!preset) {
+            return <></>;
+        }
+
+        return (
+            <Tooltip
+                title={<div>{JSON.stringify(preset)}</div>}
+                overlayClassName="w-96"
+            >
+                <div className="p-2 rounded-md shadow-md w-48 bg-brand">
+                    <div className="whitespace-nowrap text-ellipsis overflow-hidden">
+                        Name: {preset.n}
+                    </div>
+                    <div>On: {preset.on ? "true" : "false"}</div>
+                    <div>Brightness: {preset.bri}</div>
+                </div>
+            </Tooltip>
+        );
+    };
+
+    const renderCurrentPlaylist = (playlist: any): React.ReactNode => {
+        return (
+            <div className="flex flex-wrap gap-2">
+                {playlist.ps.map((preset: any) => renderPresetBox(preset))}
+            </div>
+        );
+    };
+
+    const renderCurrentPreset = (): React.ReactNode => {
+        if (!systemState || !presets) {
+            return <div>Loading...</div>;
+        }
+
+        const currentPreset = presets.find(
+            (preset) => preset.id === systemState.pl
+        );
+
+        if (!currentPreset) {
+            return <div>Invalid Current Preset</div>;
+        }
+
+        return (
+            <div>
+                <div>{currentPreset.n}</div>
+                <div>
+                    {currentPreset.playlist &&
+                        renderCurrentPlaylist(currentPreset.playlist)}
+                </div>
+            </div>
+        );
     };
 
     return (
@@ -50,13 +119,14 @@ function App() {
                 </div>
 
                 <div className="flex-1 shadow-lg p-2">
-                    {systemState && presets && (
-                        <div>{JSON.stringify(presets[systemState.pl])}</div>
-                    )}
+                    {
+                        systemState && presets && renderCurrentPreset()
+                        // <div>{JSON.stringify(presets[systemState.pl])}</div>
+                    }
                 </div>
             </div>
         </div>
     );
-}
+};
 
 export default App;
